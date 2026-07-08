@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 
 // Configuración de RCON (Asegúrate de configurar esto en las variables de entorno de Coolify o ponerlas aquí)
 const RCON_HOST = process.env.RCON_HOST || 'IP_DE_TU_VPS';
-const RCON_PORT = parseInt(process.env.RCON_PORT || '25575');
+const RCON_PORT = parseInt(process.env.RCON_PORT || '50115');
 const RCON_PASSWORD = process.env.RCON_PASSWORD || 'TU_CONTRASEÑA_RCON';
 
 // Middleware para procesar datos de formularios
