@@ -1,73 +1,52 @@
 const express = require('express');
 const { Rcon } = require('rcon-client');
-const path = require('path');
 
 const app = express();
-const PORT = 3005;
+const PORT = 3005; // Puerto fijo configurado para Coolify
 
-// Variables de entorno para RCON
+// Variables de entorno con los valores por defecto del servidor de Minecraft
 const RCON_HOST = process.env.RCON_HOST || '62.171.153.80';
 const RCON_PORT = parseInt(process.env.RCON_PORT || '50115');
 const RCON_PASSWORD = process.env.RCON_PASSWORD || 'backdoorkain';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-// Contraseña para acceder al panel de administración web
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'midorimidori1';
-
-// Base de datos temporal en memoria para 3 preguntas (puedes cambiarlas desde el panel admin)
-let acertijos = {
-    1: {
-        pregunta: "Tengo ojos pero no veo, bailo sin música y soy el meme más famoso del servidor... ¿Quién soy?",
-        respuesta: "ricardo",
-        comando: "mi_evento_recompensa %player% 1"
-    },
-    2: {
-        pregunta: "Segunda pregunta del evento: ¿Cuál es el bloque más duro de obtener sin romper la lógica?",
-        respuesta: "bedrock",
-        comando: "mi_evento_recompensa %player% 2"
-    },
-    3: {
-        pregunta: "Tercera pregunta: ¿Cuál es el nombre de la mascota del admin?",
-        respuesta: "katty",
-        comando: "mi_evento_recompensa %player% 3"
-    }
+// Base de datos temporal en memoria (Modificable desde el panel Admin)
+let configuracionAcertijo = {
+    titulo: "Desafío del Servidor #1",
+    pregunta: "Tengo ojos pero no veo, bailo sin música y soy el meme más famoso del servidor... ¿Quién soy?",
+    respuesta: "ricardo",
+    comando: "mi_evento_recompensa %player%"
 };
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// 1. Vista Pública: Formulario para los jugadores (Soporta parámetro ?id=1, ?id=2, ?id=3)
+// 1. VISTA PÚBLICA: Interfaz para los jugadores
 app.get('/', (req, res) => {
-    const id = req.query.id || 1;
-    const acertijo = acertijos[id];
-
-    if (!acertijo) {
-        return res.status(404).send('<h3>Este desafío no existe.</h3>');
-    }
-
     res.send(`
     <!DOCTYPE html>
     <html lang="es">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Desafío KattyCraft</title>
+        <title>${configuracionAcertijo.titulo}</title>
         <style>
             body { font-family: sans-serif; background: #1e1e24; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
             .container { background: #2a2a35; padding: 30px; border-radius: 10px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-            h1 { color: #ffbc42; }
-            .box { background: #1e1e24; padding: 15px; border-left: 5px solid #ffbc42; margin: 20px 0; font-style: italic; }
+            h1 { color: #ffbc42; margin-bottom: 5px; }
+            .box { background: #1e1e24; padding: 15px; border-left: 5px solid #ffbc42; margin: 20px 0; font-style: italic; line-height: 1.4; }
             input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #444; background: #1e1e24; color: #fff; box-sizing: border-box; }
-            button { width: 100%; padding: 12px; background: #ffbc42; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+            button { width: 100%; padding: 12px; background: #ffbc42; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #1e1e24; }
             button:hover { background: #e0a334; }
-            .footer-link { margin-top: 20px; display: block; color: #777; text-decoration: none; font-size: 0.8em; }
+            .footer-link { margin-top: 25px; display: block; color: #555; text-decoration: none; font-size: 0.8em; }
+            .footer-link:hover { color: #777; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🧩 Desafío #${id}</h1>
-            <div class="box">"${acertijo.pregunta}"</div>
+            <h1>🧩 ${configuracionAcertijo.titulo}</h1>
+            <div class="box">"${configuracionAcertijo.pregunta}"</div>
             <form action="/verificar" method="POST">
-                <input type="hidden" name="id" value="${id}">
                 <input type="text" name="nick" placeholder="Tu Nick de Minecraft (Exacto)" required>
                 <input type="text" name="respuesta" placeholder="Tu Respuesta aquí" required>
                 <button type="submit">Enviar Solución</button>
@@ -79,107 +58,110 @@ app.get('/', (req, res) => {
     `);
 });
 
-// 2. Ruta para procesar la respuesta del jugador
+// 2. RUTA PÚBLICA: Validación de la respuesta e interacción RCON
 app.post('/verificar', async (req, res) => {
-    const { id, nick, respuesta } = req.body;
-    const acertijo = acertijos[id];
+    const { nick, respuesta } = req.body;
 
-    if (!acertijo) return res.status(400).send('Desafío no válido.');
+    if (!nick || !respuesta) {
+        return res.status(400).send('<h3>Por favor llena todos los campos.</h3><a href="/">Volver</a>');
+    }
 
-    if (respuesta.trim().toLowerCase() === acertijo.respuesta.trim().toLowerCase()) {
+    if (respuesta.trim().toLowerCase() === configuracionAcertijo.respuesta.trim().toLowerCase()) {
         try {
             const rcon = await Rcon.connect({ host: RCON_HOST, port: RCON_PORT, password: RCON_PASSWORD });
+            const comandoFinal = configuracionAcertijo.comando.replace('%player%', nick.trim());
             
-            // Reemplazamos la variable %player% por el nick del jugador real
-            const comandoFinal = acertijo.comando.replace('%player%', nick.trim());
             await rcon.send(comandoFinal);
             await rcon.end();
 
             res.send(`
-                <div style="text-align: center; font-family: sans-serif; margin-top: 50px; background: #1e1e24; color: #fff; height: 100vh; padding-top: 40px;">
+                <body style="text-align: center; font-family: sans-serif; background: #1e1e24; color: #fff; padding-top: 100px;">
                     <h1 style="color: #4caf50;">¡Respuesta Correcta!</h1>
-                    <p>El servidor de Minecraft ha procesado tu premio para el jugador: <strong>${nick}</strong></p>
-                    <p>¡Entra al juego y reclama tu recompensa!</p>
-                </div>
+                    <p>El comando RCON ha sido enviado exitosamente para el jugador: <strong>${nick}</strong></p>
+                    <p>¡Revisa tu inventario o el chat dentro de KattyCraft!</p>
+                </body>
             `);
         } catch (error) {
             console.error(error);
-            res.status(500).send('<h3>Respuesta correcta, pero falló la conexión RCON con Minecraft. Avisa a un admin.</h3>');
+            res.status(500).send('<body style="text-align:center;font-family:sans-serif;background:#1e1e24;color:#fff;padding-top:100px;"><h3>¡Respuesta correcta! Sin embargo, falló la conexión RCON. Avisa al staff.</h3></body>');
         }
     } else {
         res.send(`
-            <div style="text-align: center; font-family: sans-serif; margin-top: 50px; background: #1e1e24; color: #fff; height: 100vh; padding-top: 40px;">
+            <body style="text-align: center; font-family: sans-serif; background: #1e1e24; color: #fff; padding-top: 100px;">
                 <h1 style="color: #f44336;">Respuesta Incorrecta</h1>
-                <p>Vuelve a leer el acertijo e inténtalo de nuevo.</p>
-                <a href="/?id=${id}" style="color: #ffbc42;">Regresar</a>
-            </div>
+                <p>Vuelve a leer el acertijo en el mapa e inténtalo de nuevo.</p>
+                <a href="/" style="color: #ffbc42; text-decoration: none; font-weight: bold;">[ Regresar ]</a>
+            </body>
         `);
     }
 });
 
-// 3. Vista de Administración (Logueo / Edición)
+// 3. VISTA DE ADMINISTRACIÓN: Panel de login y edición unificado
 app.get('/admin', (req, res) => {
     const { pass } = req.query;
 
     if (pass !== ADMIN_PASSWORD) {
         return res.send(`
-            <body style="font-family:sans-serif; background:#1e1e24; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh;">
-            <form action="/admin" method="GET" style="background:#2a2a35; padding:20px; border-radius:8px; text-align:center;">
+            <body style="font-family:sans-serif; background:#1e1e24; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
+            <form action="/admin" method="GET" style="background:#2a2a35; padding:30px; border-radius:8px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
                 <h3>Acceso Administrativo</h3>
-                <input type="password" name="pass" placeholder="Contraseña Admin" style="padding:10px; margin-bottom:10px; border-radius:4px; border:none;"><br>
-                <button type="submit" style="padding:10px 20px; background:#ffbc42; border:none; border-radius:4px; font-weight:bold;">Entrar</button>
+                <input type="password" name="pass" placeholder="Contraseña de Seguridad" style="padding:10px; margin-bottom:15px; border-radius:4px; border:1px solid #444; background:#1e1e24; color:#fff; text-align:center;"><br>
+                <button type="submit" style="padding:10px 25px; background:#ffbc42; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Autenticar</button>
             </form>
             </body>
         `);
     }
 
-    // Si la contraseña es correcta, muestra el editor de los 3 acertijos
-    let formularios = '';
-    for (let key in acertijos) {
-        formularios += `
-            <div style="background:#2a2a35; padding:15px; margin-bottom:15px; border-radius:8px; border-left: 4px solid #ffbc42;">
-                <h4>Desafío #${key} (URL pública: /?id=${key})</h4>
-                <label>Pregunta:</label><br>
-                <textarea name="p_${key}" style="width:100%; height:50px; background:#1e1e24; color:#fff; border:1px solid #444;">${acertijos[key].pregunta}</textarea><br><br>
-                <label>Respuesta Correcta:</label><br>
-                <input type="text" name="r_${key}" value="${acertijos[key].respuesta}" style="width:100%; background:#1e1e24; color:#fff; border:1px solid #444; padding:5px;"><br><br>
-                <label>Comando Skript / RCON (Usa %player% para el nick):</label><br>
-                <input type="text" name="c_${key}" value="${acertijos[key].comando}" style="width:100%; background:#1e1e24; color:#fff; border:1px solid #444; padding:5px;">
-            </div>
-        `;
-    }
-
     res.send(`
-        <body style="font-family:sans-serif; background:#1e1e24; color:#fff; padding:20px;">
-            <h2>⚙️ Configuración de Acertijos KattyCraft</h2>
-            <form action="/admin/guardar" method="POST">
+        <body style="font-family:sans-serif; background:#1e1e24; color:#fff; padding:30px;">
+            <h2 style="color: #ffbc42; border-bottom: 2px solid #2a2a35; padding-bottom: 10px;">⚙️ Gestor del Acertijo Activo</h2>
+            <p style="color: #aaa;">Cualquier cambio guardado aquí modificará la página de inicio inmediatamente.</p>
+            
+            <form action="/admin/guardar" method="POST" style="background:#2a2a35; padding:25px; border-radius:8px; max-width: 600px;">
                 <input type="hidden" name="pass" value="${pass}">
-                ${formularios}
-                <button type="submit" style="padding:12px 30px; background:#4caf50; color:#fff; border:none; border-radius:5px; font-size:1.1em; cursor:pointer; font-weight:bold;">Guardar Cambios</button>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold;">Título del Desafío:</label><br>
+                    <input type="text" name="titulo" value="${configuracionAcertijo.titulo}" style="width:100%; background:#1e1e24; color:#fff; border:1px solid #444; padding:10px; border-radius:4px; margin-top:5px;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold;">Pregunta / Acertijo:</label><br>
+                    <textarea name="pregunta" style="width:100%; height:75px; background:#1e1e24; color:#fff; border:1px solid #444; padding:10px; border-radius:4px; margin-top:5px; font-family:sans-serif;">${configuracionAcertijo.pregunta}</textarea>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold;">Respuesta Correcta:</label><br>
+                    <input type="text" name="respuesta" value="${configuracionAcertijo.respuesta}" style="width:100%; background:#1e1e24; color:#fff; border:1px solid #444; padding:10px; border-radius:4px; margin-top:5px;">
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="font-weight: bold;">Comando RCON (Usa %player% para el nombre del jugador):</label><br>
+                    <input type="text" name="comando" value="${configuracionAcertijo.comando}" style="width:100%; background:#1e1e24; color:#fff; border:1px solid #444; padding:10px; border-radius:4px; margin-top:5px; font-family: monospace;">
+                </div>
+
+                <button type="submit" style="padding:12px 30px; background:#4caf50; color:#fff; border:none; border-radius:5px; font-size:1em; cursor:pointer; font-weight:bold;">Actualizar Evento</button>
             </form>
         </body>
     `);
 });
 
-// 4. Procesar el guardado de los cambios del Admin
+// 4. ACCIÓN DE GUARDAR: Procesa la edición del Admin
 app.post('/admin/guardar', (req, res) => {
-    const { pass } = req.body;
-    if (pass !== ADMIN_PASSWORD) return res.status(403).send('No autorizado');
+    const { pass, titulo, pregunta, respuesta, comando } = req.body;
+    if (pass !== ADMIN_PASSWORD) return res.status(403).send('Acceso denegado.');
 
-    for (let key in acertijos) {
-        acertijos[key].pregunta = req.body[`p_${key}`];
-        acertijos[key].respuesta = req.body[`r_${key}`];
-        acertijos[key].comando = req.body[`c_${key}`];
-    }
+    configuracionAcertijo.titulo = titulo;
+    configuracionAcertijo.pregunta = pregunta;
+    configuracionAcertijo.respuesta = respuesta;
+    configuracionAcertijo.comando = comando;
 
     res.send(`
         <script>
-            alert('¡Configuración guardada con éxito!');
+            alert('¡El acertijo y el título se han actualizado con éxito!');
             window.location.href = '/admin?pass=${pass}';
         </script>
     `);
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor del acertijo corriendo en el puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor de eventos corriendo en puerto ${PORT}`));
