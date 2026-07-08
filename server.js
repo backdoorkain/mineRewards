@@ -36,7 +36,9 @@ app.get('/', (req, res) => {
             h1 { color: #ffbc42; margin-bottom: 5px; }
             .box { background: #1e1e24; padding: 15px; border-left: 5px solid #ffbc42; margin: 20px 0; font-style: italic; line-height: 1.4; }
             input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #444; background: #1e1e24; color: #fff; box-sizing: border-box; }
-            button { width: 100%; padding: 12px; background: #ffbc42; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #1e1e24; }
+            .bedrock-note { color: #aaa; font-size: 0.85em; text-align: left; margin: -5px 0 15px 2px; line-height: 1.3; }
+            .bedrock-note strong { color: #ffbc42; }
+            button { width: 100%; padding: 12px; background: #ffbc42; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: #1e1e24; margin-top: 5px; }
             button:hover { background: #e0a334; }
             .footer-link { margin-top: 25px; display: block; color: #555; text-decoration: none; font-size: 0.8em; }
             .footer-link:hover { color: #777; }
@@ -48,6 +50,9 @@ app.get('/', (req, res) => {
             <div class="box">"${configuracionAcertijo.pregunta}"</div>
             <form action="/verificar" method="POST">
                 <input type="text" name="nick" placeholder="Tu Nick de Minecraft (Exacto)" required>
+                <div class="bedrock-note">
+                    ⚠️ <strong>Jugadores Bedrock (Xbox/Celular):</strong> Recuerda que tu usuario comienza con un punto. Ejemplo: <code>.UsuarioBedrock</code>
+                </div>
                 <input type="text" name="respuesta" placeholder="Tu Respuesta aquí" required>
                 <button type="submit">Enviar Solución</button>
             </form>
