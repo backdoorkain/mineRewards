@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 4. Instalar las dependencias de producción de forma limpia
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # 5. Copiar el resto de los archivos de la aplicación (index.js, index.html, etc.)
 COPY . .
