@@ -14,7 +14,7 @@ RUN npm install --omit=dev
 COPY . .
 
 # 6. Exponer el puerto en el que corre tu aplicación Express
-EXPOSE 3000
+EXPOSE 3005
 
 # 7. Comando para iniciar la aplicación web
 CMD ["node", "server.js"]
