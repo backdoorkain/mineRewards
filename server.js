@@ -1,22 +1,56 @@
 const express = require('express');
 const { Rcon } = require('rcon-client');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
-const PORT = 3005; // Puerto fijo configurado para Coolify
+const PORT = 3005;
 
-// Variables de entorno con los valores por defecto del servidor de Minecraft
+// Variables de entorno con los valores por defecto de Minecraft
 const RCON_HOST = process.env.RCON_HOST || '62.171.153.80';
 const RCON_PORT = parseInt(process.env.RCON_PORT || '50115');
 const RCON_PASSWORD = process.env.RCON_PASSWORD || 'backdoorkain';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-// Base de datos temporal en memoria (Modificable desde el panel Admin)
+// Ruta del archivo físico donde se guardará el acertijo permanentemente
+const ARCHIVO_DATA = path.join(__dirname, 'acertijo.json');
+
+// Valores por defecto (se usarán solo la primera vez si el archivo no existe)
 let configuracionAcertijo = {
     titulo: "Desafío del Servidor #1",
     pregunta: "Tengo ojos pero no veo, bailo sin música y soy el meme más famoso del servidor... ¿Quién soy?",
     respuesta: "ricardo",
-    comando: "mi_evento_recompensa %player%"
+    comando: "givebook %player% mi_libro"
 };
+
+// FUNCIÓN PARA CARGAR LOS DATOS DESDE EL DISCO
+function cargarDatos() {
+    try {
+        if (fs.existsSync(ARCHIVO_DATA)) {
+            const datosRaw = fs.readFileSync(ARCHIVO_DATA, 'utf8');
+            configuracionAcertijo = JSON.parse(datosRaw);
+            console.log("-> Datos del acertijo cargados correctamente desde el disco.");
+        } else {
+            console.log("-> No se encontró archivo previo. Usando valores por defecto.");
+            guardarDatos();
+        }
+    } catch (error) {
+        console.error("Error al cargar el archivo de datos:", error);
+    }
+}
+
+// FUNCIÓN PARA GUARDAR LOS DATOS EN EL DISCO
+function guardarDatos() {
+    try {
+        fs.writeFileSync(ARCHIVO_DATA, JSON.stringify(configuracionAcertijo, null, 2), 'utf8');
+        console.log("-> Cambios guardados físicamente en el disco.");
+    } catch (error) {
+        console.error("Error al escribir en el archivo de datos:", error);
+    }
+}
+
+// Inicializar la carga de datos al encender el servidor
+cargarDatos();
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -62,7 +96,6 @@ app.get('/', (req, res) => {
     </html>
     `);
 });
-
 // 2. RUTA PÚBLICA: Validación de la respuesta e interacción RCON
 app.post('/verificar', async (req, res) => {
     const { nick, respuesta } = req.body;
@@ -82,7 +115,7 @@ app.post('/verificar', async (req, res) => {
             res.send(`
                 <body style="text-align: center; font-family: sans-serif; background: #1e1e24; color: #fff; padding-top: 100px;">
                     <h1 style="color: #4caf50;">¡Respuesta Correcta!</h1>
-                    <p>El comando ha sido enviado exitosamente para el jugador: <strong>${nick}</strong></p>
+                    <p>El comando RCON ha sido enviado exitosamente para el jugador: <strong>${nick}</strong></p>
                     <p>¡Revisa tu inventario o el chat dentro de KattyCraft!</p>
                 </body>
             `);
@@ -94,7 +127,7 @@ app.post('/verificar', async (req, res) => {
         res.send(`
             <body style="text-align: center; font-family: sans-serif; background: #1e1e24; color: #fff; padding-top: 100px;">
                 <h1 style="color: #f44336;">Respuesta Incorrecta</h1>
-                <p>Vuelve a leer el acertijo e inténtalo de nuevo.</p>
+                <p>Vuelve a leer el acertijo en el mapa e inténtalo de nuevo.</p>
                 <a href="/" style="color: #ffbc42; text-decoration: none; font-weight: bold;">[ Regresar ]</a>
             </body>
         `);
@@ -151,7 +184,7 @@ app.get('/admin', (req, res) => {
     `);
 });
 
-// 4. ACCIÓN DE GUARDAR: Procesa la edición del Admin
+// 4. ACCIÓN DE GUARDAR: Procesa la edición del Admin y escribe el archivo JSON
 app.post('/admin/guardar', (req, res) => {
     const { pass, titulo, pregunta, respuesta, comando } = req.body;
     if (pass !== ADMIN_PASSWORD) return res.status(403).send('Acceso denegado.');
@@ -161,9 +194,12 @@ app.post('/admin/guardar', (req, res) => {
     configuracionAcertijo.respuesta = respuesta;
     configuracionAcertijo.comando = comando;
 
+    // GUARDADO PERSISTENTE EN EL VPS
+    guardarDatos();
+
     res.send(`
         <script>
-            alert('¡El acertijo y el título se han actualizado con éxito!');
+            alert('¡El acertijo y el título se han guardado permanentemente en el disco!');
             window.location.href = '/admin?pass=${pass}';
         </script>
     `);
