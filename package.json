@@ -1,0 +1,16 @@
+{
+  "name": "acertijo-kattycraft",
+  "version": "1.0.0",
+  "description": "Sistema web con entrega de recompensas vía RCON para Minecraft",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "rcon-client": "^4.2.3"
+  }
+}
