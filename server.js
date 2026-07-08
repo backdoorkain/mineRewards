@@ -82,7 +82,7 @@ app.post('/verificar', async (req, res) => {
             res.send(`
                 <body style="text-align: center; font-family: sans-serif; background: #1e1e24; color: #fff; padding-top: 100px;">
                     <h1 style="color: #4caf50;">¡Respuesta Correcta!</h1>
-                    <p>El comando RCON ha sido enviado exitosamente para el jugador: <strong>${nick}</strong></p>
+                    <p>El comando ha sido enviado exitosamente para el jugador: <strong>${nick}</strong></p>
                     <p>¡Revisa tu inventario o el chat dentro de KattyCraft!</p>
                 </body>
             `);
@@ -94,7 +94,7 @@ app.post('/verificar', async (req, res) => {
         res.send(`
             <body style="text-align: center; font-family: sans-serif; background: #1e1e24; color: #fff; padding-top: 100px;">
                 <h1 style="color: #f44336;">Respuesta Incorrecta</h1>
-                <p>Vuelve a leer el acertijo en el mapa e inténtalo de nuevo.</p>
+                <p>Vuelve a leer el acertijo e inténtalo de nuevo.</p>
                 <a href="/" style="color: #ffbc42; text-decoration: none; font-weight: bold;">[ Regresar ]</a>
             </body>
         `);
