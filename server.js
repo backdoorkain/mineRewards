@@ -180,8 +180,6 @@ app.post('/admin/guardar', (req, res) => {
     `);
 });
 
-app.listen(PORT, () => console.log(`Servidor de eventos corriendo en puerto ${PORT}`));
-
 app.listen(PORT, () => {
     console.log(`Servidor del acertijo corriendo en el puerto ${PORT}`);
 });
